@@ -250,9 +250,11 @@ export function GroupFormScreen({
         {!selected.length && <Text style={styles.muted}>Selecione pelo menos um dia de treino</Text>}
         {selected.map((session) => (
           <View key={session.weekday} style={styles.row}>
-            <DayTag weekday={session.weekday} />
+            <View style={{ width: 32 }}>
+              <DayTag weekday={session.weekday} />
+            </View>
             {(["start", "end"] as const).map((field, index) => (
-              <View key={field} style={[styles.row, { flex: 1 }]}>
+              <View key={field} style={[styles.row, { flex: 1, minWidth: 0 }]}>
                 {index > 0 && <Text style={styles.muted}>—</Text>}
                 <TextInput
                   accessibilityLabel={`${weekdayLabels[session.weekday]}: ${field === "start" ? "início" : "término"}`}
@@ -262,7 +264,7 @@ export function GroupFormScreen({
                   maxLength={5}
                   value={session[field]}
                   onChangeText={(value) => setTime(session.weekday, field, value)}
-                  style={[styles.input, { flex: 1 }]}
+                  style={[styles.input, { flex: 1, minWidth: 0 }]}
                 />
               </View>
             ))}
