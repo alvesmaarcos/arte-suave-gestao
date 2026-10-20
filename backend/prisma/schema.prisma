@@ -46,6 +46,7 @@ model Student {
   guardian   User?       @relation("StudentGuardian", fields: [guardianId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_22b7328b0b586a40dbe658895d3")
   account    User?       @relation("StudentAccount", fields: [accountId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_9aade3cfe3e20d001e056d11b84")
   group      SchoolGroup @relation(fields: [groupId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "FK_cc296de36cadf8de53b9cd60aa7")
+  revenues   Revenue[]
 
   @@map("students")
 }
@@ -61,6 +62,73 @@ model SchoolGroup {
   students Student[]
 
   @@map("school_groups")
+}
+
+// RF012: title só em OUTROS; studentId só em AJUDA_DE_CUSTO (controle mensal do RF014).
+model Revenue {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category      RevenueCategory
+  title         String?         @db.VarChar(80)
+  amount        Decimal         @db.Decimal(10, 2)
+  date          DateTime        @db.Date
+  paymentMethod PaymentMethod
+  description   String          @default("") @db.VarChar(500)
+  studentId     String?         @db.Uuid
+  createdAt     DateTime        @default(now()) @db.Timestamp(6)
+
+  student       Student?        @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@map("revenues")
+}
+
+// RF013: title só em OUTROS.
+model Expense {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category    ExpenseCategory
+  title       String?         @db.VarChar(80)
+  amount      Decimal         @db.Decimal(10, 2)
+  date        DateTime        @db.Date
+  status      ExpenseStatus
+  description String          @default("") @db.VarChar(500)
+  createdAt   DateTime        @default(now()) @db.Timestamp(6)
+
+  @@map("expenses")
+}
+
+enum RevenueCategory {
+  AJUDA_DE_CUSTO
+  PATROCINIO_DOACAO
+  TAXA_INSCRICAO_CAMPEONATO
+  OUTROS
+
+  @@map("revenue_category_enum")
+}
+
+enum PaymentMethod {
+  PIX
+  DINHEIRO
+  TRANSFERENCIA
+  CARTAO
+  OUTRO
+
+  @@map("payment_method_enum")
+}
+
+enum ExpenseCategory {
+  ALUGUEL
+  INSCRICAO_CAMPEONATO
+  TRANSPORTE
+  MATERIAIS
+  OUTROS
+
+  @@map("expense_category_enum")
+}
+
+enum ExpenseStatus {
+  PAGA
+  PENDENTE
+
+  @@map("expense_status_enum")
 }
 
 enum Role {

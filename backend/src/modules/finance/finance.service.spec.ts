@@ -1,0 +1,112 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { vi } from 'vitest';
+import { FinanceService, parseDate } from './finance.service.js';
+import { PrismaService } from '../../prisma/prisma.module.js';
+
+describe('FinanceService', () => {
+  let service: FinanceService;
+  let prisma: {
+    revenue: Record<'create' | 'update' | 'findUnique', ReturnType<typeof vi.fn>>;
+    expense: Record<'create' | 'update' | 'findUnique', ReturnType<typeof vi.fn>>;
+    student: { findUnique: ReturnType<typeof vi.fn> };
+  };
+
+  const studentId = '6f1c2a3e-1111-4222-8333-944455556666';
+  const revenue = {
+    category: 'AJUDA_DE_CUSTO' as const,
+    amount: 100,
+    date: '05/10/2026',
+    paymentMethod: 'PIX' as const,
+    studentId,
+  };
+  // O create/update devolvem o que receberam, como o banco faria.
+  const echo = ({ data }: { data: object }) => Promise.resolve({ id: 'r1', createdAt: new Date(), ...data });
+
+  beforeEach(async () => {
+    const model = () => ({ create: vi.fn(echo), update: vi.fn(echo), findUnique: vi.fn() });
+    prisma = { revenue: model(), expense: model(), student: { findUnique: vi.fn().mockResolvedValue({ id: studentId }) } };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [FinanceService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+
+    service = module.get(FinanceService);
+  });
+
+  describe('parseDate', () => {
+    it('converte DD/MM/AAAA e recusa datas inexistentes', () => {
+      expect(parseDate('05/10/2026').toISOString()).toBe('2026-10-05T00:00:00.000Z');
+      expect(() => parseDate('31/02/2026')).toThrow(BadRequestException);
+      expect(() => parseDate('01/13/2026')).toThrow(BadRequestException);
+    });
+  });
+
+  describe('createRevenue', () => {
+    it('vincula o atleta em Ajuda de Custo e devolve valor como number e data em DD/MM/AAAA', async () => {
+      const result = await service.createRevenue(revenue);
+
+      expect(prisma.revenue.create.mock.calls[0][0].data).toMatchObject({ studentId, title: null, description: '' });
+      expect(result).toMatchObject({ amount: 100, date: '05/10/2026', studentId });
+    });
+
+    it('descarta o atleta nas outras categorias', async () => {
+      await service.createRevenue({ ...revenue, category: 'PATROCINIO_DOACAO' });
+
+      expect(prisma.revenue.create.mock.calls[0][0].data.studentId).toBeNull();
+      expect(prisma.student.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('lança NotFoundException quando o atleta não existe', async () => {
+      prisma.student.findUnique.mockResolvedValue(null);
+
+      await expect(service.createRevenue(revenue)).rejects.toThrow(NotFoundException);
+      expect(prisma.revenue.create).not.toHaveBeenCalled();
+    });
+
+    it('exige título em OUTROS', async () => {
+      await expect(service.createRevenue({ ...revenue, category: 'OUTROS', title: '  ' })).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('updateRevenue', () => {
+    const stored = { id: 'r1', category: 'AJUDA_DE_CUSTO', title: null, amount: '100.00', date: new Date('2026-10-05T00:00:00Z'), paymentMethod: 'PIX', description: '', studentId, createdAt: new Date() };
+
+    it('mantém o que não veio e desvincula o atleta ao trocar a categoria', async () => {
+      prisma.revenue.findUnique.mockResolvedValue(stored);
+
+      await service.updateRevenue('r1', { category: 'OUTROS', title: 'Rifa' });
+
+      expect(prisma.revenue.update.mock.calls[0][0].data).toMatchObject({
+        category: 'OUTROS',
+        title: 'Rifa',
+        amount: 100,
+        date: new Date('2026-10-05T00:00:00Z'),
+        paymentMethod: 'PIX',
+        studentId: null,
+      });
+    });
+
+    it('studentId: null desvincula o atleta', async () => {
+      prisma.revenue.findUnique.mockResolvedValue(stored);
+
+      await service.updateRevenue('r1', { studentId: null });
+
+      expect(prisma.revenue.update.mock.calls[0][0].data.studentId).toBeNull();
+    });
+
+    it('lança NotFoundException quando a receita não existe', async () => {
+      prisma.revenue.findUnique.mockResolvedValue(null);
+
+      await expect(service.updateRevenue('x', { amount: 1 })).rejects.toThrow('Receita não encontrada');
+    });
+  });
+
+  describe('createExpense', () => {
+    it('grava situação e título só em OUTROS', async () => {
+      await service.createExpense({ category: 'ALUGUEL', title: 'ignorado', amount: 800, date: '01/10/2026', status: 'PENDENTE' });
+
+      expect(prisma.expense.create.mock.calls[0][0].data).toMatchObject({ category: 'ALUGUEL', title: null, status: 'PENDENTE' });
+    });
+  });
+});
