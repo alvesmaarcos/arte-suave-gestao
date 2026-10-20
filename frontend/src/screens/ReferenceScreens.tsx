@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AdminFooter, EventCards } from "../components/access";
 import {
+  Button,
   Field,
   Heading,
   Page,
@@ -22,6 +23,7 @@ export function FinanceScreen({
   return (
     <Page footer={<AdminFooter navigation={navigation} active="Finance" />}>
       <Heading title="GESTÃO FINANCEIRA" />
+      <Button title="+ LANÇAMENTO" onPress={() => navigation.navigate("FinanceEntry")} />
       <Section>
         <Text style={styles.text}>Módulo em desenvolvimento.</Text>
         <Text style={styles.muted}>

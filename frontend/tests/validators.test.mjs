@@ -61,3 +61,25 @@ test("group validation mirrors backend rules and time mask", async () => {
   assert.match(validarTurma({ ...turma, sessions: [{ weekday: 2, start: "24:00", end: "19:30" }] }), /HH:MM/);
   assert.match(validarTurma({ ...turma, sessions: [{ weekday: 2, start: "19:30", end: "19:30" }] }), /depois do início/);
 });
+
+test("currency mask turns typed digits into cents", async () => {
+  const { formatarMoeda, moedaParaNumero } = await import("../src/utils/validators.ts");
+  assert.equal(formatarMoeda("5"), "0,05");
+  assert.equal(formatarMoeda("0,050"), "0,50");
+  assert.equal(formatarMoeda("123456"), "1.234,56");
+  assert.equal(formatarMoeda("99999999999"), "99.999.999,99");
+  assert.equal(formatarMoeda("abc"), "");
+  assert.equal(moedaParaNumero("1.234,56"), 1234.56);
+});
+
+test("finance entry validation mirrors the backend rules", async () => {
+  const { validarLancamento } = await import("../src/utils/validators.ts");
+  const ok = { categoria: "ALUGUEL", titulo: "", valor: "800,00", data: "01/10/2026", extra: "PAGA", nomeExtra: "a situação" };
+  assert.equal(validarLancamento(ok), null);
+  assert.match(validarLancamento({ ...ok, categoria: "" }), /categoria/);
+  assert.match(validarLancamento({ ...ok, categoria: "OUTROS", titulo: "  " }), /título/);
+  assert.equal(validarLancamento({ ...ok, categoria: "OUTROS", titulo: "Rifa" }), null);
+  assert.match(validarLancamento({ ...ok, valor: "" }), /valor/);
+  for (const data of ["31/02/2026", "01/13/2026", "01/10/26", "01/10/1999"]) assert.match(validarLancamento({ ...ok, data }), /data/);
+  assert.match(validarLancamento({ ...ok, extra: "" }), /situação/);
+});
