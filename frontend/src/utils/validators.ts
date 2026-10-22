@@ -78,3 +78,35 @@ export function validarTurma(turma: {
     return "O horário de término deve ser depois do início.";
   return null;
 }
+
+// Máscara de valor em reais: os dígitos digitados viram centavos (até 99.999.999,99, limite do backend).
+export function formatarMoeda(valor: string): string {
+  const centavos = valor.replace(/\D/g, "").replace(/^0+/, "").slice(0, 10);
+  if (!centavos) return "";
+  const numero = centavos.padStart(3, "0");
+  return numero.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + numero.slice(-2);
+}
+
+export function moedaParaNumero(valor: string): number {
+  return Number(valor.replace(/\D/g, "")) / 100;
+}
+
+// Mesmas regras do FinanceService do backend (RF012/RF013); extra = forma de recebimento ou situação.
+export function validarLancamento(l: {
+  categoria: string;
+  titulo: string;
+  valor: string;
+  data: string;
+  extra: string;
+  nomeExtra: string;
+}): string | null {
+  if (!l.categoria) return "Selecione a categoria.";
+  if (l.categoria === "OUTROS" && !l.titulo.trim()) return "Informe o título para a categoria Outros.";
+  if (!(moedaParaNumero(l.valor) > 0)) return "Informe um valor maior que zero.";
+  const [dia, mes, ano] = l.data.split("/").map(Number);
+  const data = new Date(ano, mes - 1, dia);
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(l.data) || ano < 2000 || data.getMonth() !== mes - 1 || data.getDate() !== dia)
+    return "Informe uma data válida (dd/mm/aaaa).";
+  if (!l.extra) return `Selecione ${l.nomeExtra}.`;
+  return null;
+}
