@@ -26,9 +26,9 @@ export const expenseStatuses = [
   { value: "PENDENTE", label: "Pendente" },
 ];
 
-// amount em reais; date em DD/MM/AAAA; title só em OUTROS; donor só em PATROCINIO_DOACAO.
+// amount em reais; date em DD/MM/AAAA; title só em OUTROS; donor e beneficiary só em PATROCINIO_DOACAO.
 type Entry = { category: string; title?: string; amount: number; date: string; description?: string };
-export type RevenueInput = Entry & { paymentMethod: string; donor?: string; studentId?: string };
+export type RevenueInput = Entry & { paymentMethod: string; donor?: string; beneficiary?: string; studentId?: string };
 export type ExpenseInput = Entry & { status: string };
 
 export type CostAidResponse = {

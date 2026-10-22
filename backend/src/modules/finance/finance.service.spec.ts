@@ -50,8 +50,18 @@ describe('FinanceService', () => {
     it('vincula o atleta em Ajuda de Custo e devolve valor como number e data em DD/MM/AAAA', async () => {
       const result = await service.createRevenue(revenue);
 
-      expect(prisma.revenue.create.mock.calls[0][0].data).toMatchObject({ studentId, title: null, donor: null, description: '' });
+      expect(prisma.revenue.create.mock.calls[0][0].data).toMatchObject({
+        studentId,
+        title: null,
+        donor: null,
+        beneficiary: null,
+        description: '',
+      });
       expect(result).toMatchObject({ amount: 100, date: '05/10/2026', studentId });
+    });
+
+    it('exige atleta vinculado em Ajuda de Custo', async () => {
+      await expect(service.createRevenue({ ...revenue, studentId: undefined })).rejects.toThrow(BadRequestException);
     });
 
     it('grava doador e atleta beneficiado em Doação/Patrocínio (HU018)', async () => {
@@ -59,28 +69,63 @@ describe('FinanceService', () => {
         ...revenue,
         category: 'PATROCINIO_DOACAO',
         donor: '  Empresa Local  ',
+        beneficiary: 'Ignorado pois tem atleta',
       });
 
       expect(prisma.revenue.create.mock.calls[0][0].data).toMatchObject({
         category: 'PATROCINIO_DOACAO',
         donor: 'Empresa Local',
+        beneficiary: null,
         studentId,
         title: null,
       });
-      expect(result).toMatchObject({ donor: 'Empresa Local', studentId });
+      expect(result).toMatchObject({ donor: 'Empresa Local', beneficiary: null, studentId });
     });
 
-    it('exige doador em Doação/Patrocínio (HU018 / RN011)', async () => {
+    it('grava beneficiado livre quando o destino em Doação/Patrocínio é Outros (HU018)', async () => {
+      const result = await service.createRevenue({
+        ...revenue,
+        category: 'PATROCINIO_DOACAO',
+        donor: 'Empresa Local',
+        studentId: undefined,
+        beneficiary: '  Compra de tatames  ',
+      });
+
+      expect(prisma.revenue.create.mock.calls[0][0].data).toMatchObject({
+        category: 'PATROCINIO_DOACAO',
+        donor: 'Empresa Local',
+        beneficiary: 'Compra de tatames',
+        studentId: null,
+      });
+      expect(result).toMatchObject({ donor: 'Empresa Local', beneficiary: 'Compra de tatames', studentId: null });
+    });
+
+    it('exige doador e destino (atleta ou beneficiado) em Doação/Patrocínio (HU018 / RN011)', async () => {
       await expect(service.createRevenue({ ...revenue, category: 'PATROCINIO_DOACAO', donor: '   ' })).rejects.toThrow(
         BadRequestException,
       );
+      await expect(
+        service.createRevenue({
+          ...revenue,
+          category: 'PATROCINIO_DOACAO',
+          donor: 'Empresa Local',
+          studentId: undefined,
+          beneficiary: '   ',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('descarta o atleta e o doador nas outras categorias', async () => {
-      await service.createRevenue({ ...revenue, category: 'TAXA_INSCRICAO_CAMPEONATO', donor: 'Ignorado' });
+    it('descarta o atleta, doador e beneficiado nas outras categorias', async () => {
+      await service.createRevenue({
+        ...revenue,
+        category: 'TAXA_INSCRICAO_CAMPEONATO',
+        donor: 'Ignorado',
+        beneficiary: 'Ignorado',
+      });
 
       expect(prisma.revenue.create.mock.calls[0][0].data.studentId).toBeNull();
       expect(prisma.revenue.create.mock.calls[0][0].data.donor).toBeNull();
+      expect(prisma.revenue.create.mock.calls[0][0].data.beneficiary).toBeNull();
       expect(prisma.student.findUnique).not.toHaveBeenCalled();
     });
 
@@ -114,12 +159,19 @@ describe('FinanceService', () => {
       });
     });
 
-    it('studentId: null desvincula o atleta', async () => {
-      prisma.revenue.findUnique.mockResolvedValue(stored);
+    it('studentId: null em Doação/Patrocínio desvincula o atleta e usa beneficiary', async () => {
+      prisma.revenue.findUnique.mockResolvedValue({
+        ...stored,
+        category: 'PATROCINIO_DOACAO',
+        donor: 'Empresa Local',
+      });
 
-      await service.updateRevenue('r1', { studentId: null });
+      await service.updateRevenue('r1', { studentId: null, beneficiary: 'Compra de tatames' });
 
-      expect(prisma.revenue.update.mock.calls[0][0].data.studentId).toBeNull();
+      expect(prisma.revenue.update.mock.calls[0][0].data).toMatchObject({
+        studentId: null,
+        beneficiary: 'Compra de tatames',
+      });
     });
 
     it('lança NotFoundException quando a receita não existe', async () => {

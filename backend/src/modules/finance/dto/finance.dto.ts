@@ -27,7 +27,10 @@ export class RevenueDto extends FinanceEntryDto {
   @ApiPropertyOptional({ example: 'Empresa Local', maxLength: 80, description: 'Doador ou patrocinador; obrigatório (e só usado) em PATROCINIO_DOACAO (HU018 / RN011)' })
   @IsOptional() @IsString() @MaxLength(80) donor?: string;
 
-  @ApiPropertyOptional({ format: 'uuid', nullable: true, description: 'Atleta vinculado; usado em AJUDA_DE_CUSTO (RF014) e PATROCINIO_DOACAO (HU018). null desvincula.' })
+  @ApiPropertyOptional({ example: 'Compra de tatames', maxLength: 80, description: 'Beneficiado/destino livre quando em PATROCINIO_DOACAO o destino for Outros (HU018 / RN011)' })
+  @IsOptional() @IsString() @MaxLength(80) beneficiary?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true, description: 'Atleta vinculado; obrigatório em AJUDA_DE_CUSTO (RF014) e usado como destino em PATROCINIO_DOACAO (HU018).' })
   @IsOptional() @IsUUID() studentId?: string | null;
 }
 

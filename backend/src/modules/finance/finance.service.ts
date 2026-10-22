@@ -20,10 +20,10 @@ function view<T extends Revenue | Expense>(entry: T) {
   return { ...entry, amount: Number(entry.amount), date: displayDate(entry.date) };
 }
 
-// PATCH: ignora o que não veio; null só vale em studentId (desvincular atleta).
+// PATCH: ignora o que não veio; null só vale em studentId/beneficiary (alternar destino).
 function sent<T extends object>(patch: T): Partial<T> {
   return Object.fromEntries(
-    Object.entries(patch).filter(([key, value]) => value !== undefined && (value !== null || key === 'studentId')),
+    Object.entries(patch).filter(([key, value]) => value !== undefined && (value !== null || key === 'studentId' || key === 'beneficiary')),
   ) as Partial<T>;
 }
 
@@ -110,6 +110,7 @@ export class FinanceService {
       ...current,
       title: current.title ?? undefined,
       donor: current.donor ?? undefined,
+      beneficiary: current.beneficiary ?? undefined,
       ...sent(patch),
     });
     return view(await this.prisma.revenue.update({ where: { id }, data, include: withStudent }));
@@ -140,15 +141,23 @@ export class FinanceService {
     await this.prisma.expense.delete({ where: { id } });
   }
 
-  // Atleta é vinculado em Ajuda de Custo e Doação/Patrocínio; doador é obrigatório em Doação/Patrocínio.
+  // Atleta é obrigatório em Ajuda de Custo; em Doação/Patrocínio exige doador e destino (atleta ou beneficiado).
   private async revenueFields(dto: RevenueDto) {
+    const isCostAid = dto.category === RevenueCategory.AJUDA_DE_CUSTO;
     const isDonation = dto.category === RevenueCategory.PATROCINIO_DOACAO;
     const donor = dto.donor?.trim();
+    const beneficiary = dto.beneficiary?.trim();
+
+    if (isCostAid && !dto.studentId) {
+      throw new BadRequestException('Selecione o atleta para a categoria Ajuda de custo.');
+    }
     if (isDonation && !donor) {
       throw new BadRequestException('Informe o doador ou patrocinador para a categoria Doação/Patrocínio.');
     }
-    const allowsStudent = dto.category === RevenueCategory.AJUDA_DE_CUSTO || isDonation;
-    const studentId = allowsStudent ? (dto.studentId ?? null) : null;
+    const studentId = isCostAid || isDonation ? (dto.studentId ?? null) : null;
+    if (isDonation && !studentId && !beneficiary) {
+      throw new BadRequestException('Informe o beneficiado para a categoria Doação/Patrocínio.');
+    }
     if (studentId && !(await this.prisma.student.findUnique({ where: { id: studentId }, select: { id: true } }))) {
       throw new NotFoundException('Atleta não encontrado.');
     }
@@ -156,6 +165,7 @@ export class FinanceService {
       ...entryFields(dto),
       category: dto.category,
       donor: isDonation ? donor! : null,
+      beneficiary: isDonation && !studentId ? beneficiary! : null,
       paymentMethod: dto.paymentMethod,
       studentId,
     };

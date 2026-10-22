@@ -95,7 +95,10 @@ export function moedaParaNumero(valor: string): number {
 export function validarLancamento(l: {
   categoria: string;
   titulo: string;
+  atleta?: string;
   doador?: string;
+  destino?: string;
+  beneficiado?: string;
   valor: string;
   data: string;
   extra: string;
@@ -103,8 +106,13 @@ export function validarLancamento(l: {
 }): string | null {
   if (!l.categoria) return "Selecione a categoria.";
   if (l.categoria === "OUTROS" && !l.titulo.trim()) return "Informe o título para a categoria Outros.";
-  if (l.categoria === "PATROCINIO_DOACAO" && !l.doador?.trim())
-    return "Informe o doador ou patrocinador para a categoria Doação/Patrocínio.";
+  if (l.categoria === "AJUDA_DE_CUSTO" && !l.atleta) return "Selecione o atleta para a categoria Ajuda de custo.";
+  if (l.categoria === "PATROCINIO_DOACAO") {
+    if (!l.doador?.trim()) return "Informe o doador ou patrocinador para a categoria Doação/Patrocínio.";
+    if (!l.destino) return "Selecione o destino para a categoria Doação/Patrocínio.";
+    if (l.destino === "OUTROS" && !l.beneficiado?.trim())
+      return "Informe o beneficiado para a categoria Doação/Patrocínio.";
+  }
   if (!(moedaParaNumero(l.valor) > 0)) return "Informe um valor maior que zero.";
   const [dia, mes, ano] = l.data.split("/").map(Number);
   const data = new Date(ano, mes - 1, dia);
