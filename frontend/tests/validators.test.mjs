@@ -79,6 +79,8 @@ test("finance entry validation mirrors the backend rules", async () => {
   assert.match(validarLancamento({ ...ok, categoria: "" }), /categoria/);
   assert.match(validarLancamento({ ...ok, categoria: "OUTROS", titulo: "  " }), /título/);
   assert.equal(validarLancamento({ ...ok, categoria: "OUTROS", titulo: "Rifa" }), null);
+  assert.match(validarLancamento({ ...ok, categoria: "PATROCINIO_DOACAO", doador: "  " }), /doador/);
+  assert.equal(validarLancamento({ ...ok, categoria: "PATROCINIO_DOACAO", doador: "Empresa Local" }), null);
   assert.match(validarLancamento({ ...ok, valor: "" }), /valor/);
   for (const data of ["31/02/2026", "01/13/2026", "01/10/26", "01/10/1999"]) assert.match(validarLancamento({ ...ok, data }), /data/);
   assert.match(validarLancamento({ ...ok, extra: "" }), /situação/);
